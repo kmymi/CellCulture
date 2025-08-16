@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>細胞継代・サンプル作成 計算ツール</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\\\(',right:'\\\\)',display:false}]});"></script>
+<style>
+  :root {
+    --accent:#0f4c5c;
+    --ink:#0b132b;
+    --muted:#6b7280;
+    --line:#d1d5db;
+    --bg:#f7fafc;
+  }
+  html, body {background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;}
+  .wrap {max-width: 980px; margin: 0 auto; padding: 16px;}
+  h1 {font-size: 1.35rem; margin: 0 0 8px;}
+  h2 {font-size: 1.1rem; margin: 24px 0 8px;}
+  .card {background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .row {display:flex; gap:12px; flex-wrap:wrap; align-items:center;}
+  .field {display:flex; flex-direction:column; gap:6px; min-width: 120px; flex:1;}
+  .field label {font-size: .9rem; color: var(--muted);}
+  .field input[type="number"], .field input[type="text"], .field select {
+    font-size: 1.05rem; padding: 10px 12px; border-radius: 10px; border:1px solid var(--line); background:#fff; width:100%;
+  }
+  .chip {display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:999px; background:#fff;}
+  button {
+    appearance:none; border:0; border-radius:10px; background:var(--accent); color:#fff; padding:12px 16px; font-size:1.05rem;
+  }
+  button.ghost {background:#fff; color:var(--accent); border:1px solid var(--accent);}
+  button.icon {padding:10px 12px;}
+  .grids {display:flex; gap:18px; flex-wrap:wrap; justify-content:flex-start;}
+  .grid4 {display:grid; grid-template-columns:repeat(2,64px); grid-template-rows:repeat(2,64px); gap:0; border: 2px solid var(--ink); position:relative;}
+  .grid4:before, .grid4:after {
+    content:""; position:absolute; background:var(--ink);
+  }
+  .grid4:before {width:2px; height:100%; left:50%; top:0; transform:translateX(-1px);}
+  .grid4:after {height:2px; width:100%; top:50%; left:0; transform:translateY(-1px);}
+  .grid4 input {width:100%; height:100%; border:0; text-align:center; font-size:1.1rem; background:transparent;}
+  .grid4 div {display:flex; align-items:center; justify-content:center; font-size:1.1rem;}
+  .muted {color:var(--muted);}
+  .divider {height:1px; background:var(--line); margin:12px 0;}
+  .stack {display:flex; flex-direction:column; gap:10px;}
+  .sectionHeader {display:flex; align-items:center; justify-content:space-between;}
+  .mini {font-size:.9rem;}
+  table {border-collapse:collapse; width:100%;}
+  th, td {border:1px solid var(--ink); padding:8px; text-align:center;}
+  th {background:#f0f5f7;}
+  kbd {background:#f1f5f9; padding:2px 6px; border-radius:6px; border:1px solid #e2e8f0;}
+  .output {white-space: normal;}
+  .math {font-size: 1.02rem; line-height: 1.6;}
+  .gridOut {display:grid; grid-template-columns:repeat(2,84px); grid-template-rows:repeat(2,84px); gap:0; border:2px solid var(--ink); position:relative; background:#fff;}
+  .gridOut:before, .gridOut:after {content:""; position:absolute; background:var(--ink);}
+  .gridOut:before {width:2px; height:100%; left:50%; top:0; transform:translateX(-1px);}
+  .gridOut:after {height:2px; width:100%; top:50%; left:0; transform:translateY(-1px);}
+  .gridOut div {display:flex; align-items:center; justify-content:center; font-size:1.1rem;}
+  .two {display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;}
+  .subtle {font-size:.95rem; color:var(--muted);}
+  .pill {padding:2px 8px; border-radius:999px; background:#eef7f9; color:#046; border:1px solid #bfe1ea; font-size:.8rem;}
+  .danger {color:#b91c1c;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>細胞継代・播種 計算ツール</h1>
+    <div class="card stack">
+      <div class="row">
+        <div class="field" style="min-width:180px;">
+          <label>細胞株</label>
+          <input id="cellLine" type="text" placeholder="例: iFECD RE+ (female)" />
+        </div>
+        <div class="field" style="max-width:160px;">
+          <label>パッセージ</label>
+          <input id="passage" type="number" inputmode="numeric" placeholder="例: 4" />
+        </div>
+        <div class="field" style="min-width:200px;">
+          <label>継代 or サンプル作成 <span class="muted mini">(両方可)</span></label>
+          <div class="row">
+            <label class="chip"><input id="usePassage" type="checkbox" checked /> 継代</label>
+            <label class="chip"><input id="useSample" type="checkbox" /> サンプル作成</label>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="subtle">血球計算盤カウント（合計8区画）</div>
+        <div class="grids" id="hemoInputs">
+          <div class="grid4">
+            <input type="number" inputmode="numeric" class="count" placeholder="">
+            <input type="number" inputmode="numeric" class="count">
+            <input type="number" inputmode="numeric" class="count">
+            <input type="number" inputmode="numeric" class="count">
+          </div>
+          <div class="grid4">
+            <input type="number" inputmode="numeric" class="count">
+            <input type="number" inputmode="numeric" class="count">
+            <input type="number" inputmode="numeric" class="count">
+            <input type="number" inputmode="numeric" class="count">
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- 継代 用入力 -->
+      <div id="passageArea" class="stack">
+        <div class="sectionHeader">
+          <h2>継代の設定</h2>
+          <button class="ghost icon" id="addPassage">＋ 追加</button>
+        </div>
+        <div id="passageBlocks" class="stack"></div>
+      </div>
+
+      <!-- サンプル作成 用入力 -->
+      <div id="sampleArea" class="stack" style="display:none;">
+        <div class="sectionHeader">
+          <h2>サンプル作成の設定</h2>
+          <button class="ghost icon" id="addSample">＋ 追加</button>
+        </div>
+        <div id="sampleBlocks" class="stack"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button id="calcBtn">計算する</button>
+        <span id="err" class="danger"></span>
+      </div>
+    </div>
+
+    <!-- 出力 -->
+    <h2 style="margin-top:18px;">出力</h2>
+    <div class="two">
+      <div class="card" style="flex:1; min-width:280px;">
+        <div class="sectionHeader">
+          <div><strong>継代用</strong></div>
+          <span class="pill"></span>
+        </div>
+        <div id="outPassage" class="stack output"></div>
+      </div>
+      <div class="card" style="flex:1; min-width:280px;">
+        <div class="sectionHeader">
+          <div><strong>サンプル作成用</strong></div>
+          <span class="pill"></span>
+        </div>
+        <div id="outSample" class="stack output"></div>
+      </div>
+    </div>
+    <div style="margin-top:12px;" class="subtle">※ おしまい</div>
+  </div>
+
+<script>
+(function(){
+  // ---------- helpers ----------
+  const byId = id => document.getElementById(id);
+  const $passageBlocks = byId('passageBlocks');
+  const $sampleBlocks  = byId('sampleBlocks');
+  const $usePassage = byId('usePassage');
+  const $useSample  = byId('useSample');
+
+  // formatting: ×10^5 representation with up to 4 decimals (at least 1)
+  function formatTimes1e5(x){
+    if (!isFinite(x)) return '-';
+    // keep up to 4 decimals; ensure at least 1
+    let s = x.toFixed(4);
+    // trim trailing zeros but keep one decimal
+    s = s.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,".0");
+    return `${s}×10^5`;
+  }
+  function roundInt(x){
+    if (!isFinite(x)) return '-';
+    return Math.round(x);
+  }
+  function today(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd= String(d.getDate()).padStart(2,'0');
+    return {y,m,dd, date:d};
+  }
+  function addDays(date, days){
+    const d = new Date(date);
+    d.setDate(d.getDate()+days);
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd= String(d.getDate()).padStart(2,'0');
+    return {m, dd};
+  }
+  function sum(arr){ return arr.reduce((a,b)=>a+(parseFloat(b)||0),0); }
+
+  // ---------- dynamic blocks ----------
+  let passageIdx = 0;
+  function newPassageBlock(pref=null){
+    passageIdx++;
+    const id = `pb${passageIdx}`;
+    const wrap = document.createElement('div');
+    wrap.className = 'card';
+    wrap.style.padding = '10px';
+    wrap.dataset.id = id;
+    wrap.innerHTML = `
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:140px;">
+          <label>次回継代 [日後]</label>
+          <select class="nextDays">
+            <option value="">—</option>
+            ${[1,2,3,4,5,6,7].map(v=>`<option value="${v}">${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="max-width:220px;">
+          <label>播種細胞数 n [×10^5 cells/well]<span class="muted mini">（次回継代とどちらか一方）</span></label>
+          <input type="number" step="0.0001" class="seedN" placeholder="例: 0.8">
+        </div>
+        <button class="ghost icon delBtn" title="削除" style="margin-left:auto;">削除</button>
+      </div>
+      <div class="subtle">※ 片方を入力するともう片方は自動で無効化されます。</div>
+    `;
+    $passageBlocks.appendChild(wrap);
+    // prefill
+    if (pref){
+      wrap.querySelector('.nextDays').value = pref.nextDays ?? '';
+      wrap.querySelector('.seedN').value    = pref.seedN ?? '';
+    }
+    // mutual exclusivity
+    const nextDays = wrap.querySelector('.nextDays');
+    const seedN = wrap.querySelector('.seedN');
+    const syncDisable = () => {
+      if (nextDays.value) { seedN.disabled = true; }
+      else if (seedN.value) { nextDays.disabled = true; }
+      else { nextDays.disabled = false; seedN.disabled = false; }
+    };
+    nextDays.addEventListener('change', syncDisable);
+    seedN.addEventListener('input', syncDisable);
+    syncDisable();
+
+    // delete
+    wrap.querySelector('.delBtn').addEventListener('click', ()=>{
+      $passageBlocks.removeChild(wrap);
+    });
+  }
+
+  let sampleIdx = 0;
+  function newSampleBlock(pref=null){
+    sampleIdx++;
+    const wrap = document.createElement('div');
+    wrap.className = 'card';
+    wrap.style.padding = '10px';
+    wrap.dataset.id = `sb${sampleIdx}`;
+    wrap.innerHTML = `
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="min-width:140px;">
+          <label>ウェルプレート</label>
+          <select class="plate">
+            ${[6,12,24,48,96].map(v=>`<option value="${v}">${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="max-width:160px;">
+          <label>N数 [wells]</label>
+          <input type="number" class="nwells" inputmode="numeric" placeholder="例: 6">
+        </div>
+        <div class="field" style="max-width:240px;">
+          <label>播種細胞数 n [×10^5 cells/well]</label>
+          <input type="number" step="0.0001" class="seedN" placeholder="例: 0.8">
+        </div>
+        <button class="ghost icon delBtn" title="削除" style="margin-left:auto;">削除</button>
+      </div>
+    `;
+    $sampleBlocks.appendChild(wrap);
+    if (pref){
+      wrap.querySelector('.plate').value = pref.plate ?? 6;
+      wrap.querySelector('.nwells').value = pref.nwells ?? '';
+      wrap.querySelector('.seedN').value = pref.seedN ?? '';
+    }
+    wrap.querySelector('.delBtn').addEventListener('click', ()=>{
+      $sampleBlocks.removeChild(wrap);
+    });
+  }
+
+  // initial one block each
+  newPassageBlock();
+  newSampleBlock();
+
+  // show/hide areas
+  function updateAreas(){
+    byId('passageArea').style.display = $usePassage.checked ? '' : 'none';
+    byId('sampleArea').style.display  = $useSample.checked ? '' : 'none';
+  }
+  $usePassage.addEventListener('change', updateAreas);
+  $useSample.addEventListener('change', updateAreas);
+  updateAreas();
+
+  byId('addPassage').addEventListener('click', ()=>{
+    // duplicate last block's values if exists
+    const last = $passageBlocks.lastElementChild;
+    let pref=null;
+    if (last){
+      pref = {
+        nextDays: last.querySelector('.nextDays').value,
+        seedN: last.querySelector('.seedN').value
+      };
+    }
+    newPassageBlock(pref);
+  });
+  byId('addSample').addEventListener('click', ()=>{
+    const last = $sampleBlocks.lastElementChild;
+    let pref=null;
+    if (last){
+      pref = {
+        plate:last.querySelector('.plate').value,
+        nwells:last.querySelector('.nwells').value,
+        seedN:last.querySelector('.seedN').value
+      };
+    }
+    newSampleBlock(pref);
+  });
+
+  // ----------- calculation -----------
+  function getCounts(){
+    const inputs = Array.from(document.querySelectorAll('.count'));
+    if (inputs.length !== 8) return [];
+    return inputs.map(i => parseFloat(i.value)||0);
+  }
+  function calcAvg(counts){
+    return sum(counts)/8;
+  }
+  function calcC(avg){
+    // C [×10^5 cells/mL] = Avg / 10^(-4) * 2 / 10^5 = Avg * 0.2
+    return avg * 0.2;
+  }
+  function nFromDays(days){
+    // n [×10^5 cells/well] = 1.8^(7 - days)
+    return Math.pow(1.8, 7 - days);
+  }
+  function perWellVolume(plate){
+  // one = 1000 * 12 / plate, except 96-well -> 100 µL (exception)
+  if (plate === 96) return 100;
+  if (!isFinite(plate) || plate <= 0) return 0;
+  return Math.round(1000 * 12 / plate);
+}
+  function mFromPlate(p){
+    if (p==48) return 2;
+    if (p==96) return 5;
+    return 1; // 6, 12, 24
+  }
+
+  function renderGridNumbers(where, counts){
+    where.innerHTML = '';
+    // two grids side by side showing the 8 counts
+    const g1 = document.createElement('div');
+    g1.className='gridOut';
+    const g2 = document.createElement('div');
+    g2.className='gridOut';
+    for (let i=0;i<4;i++){
+      const d = document.createElement('div');
+      d.textContent = Number.isFinite(counts[i]) ? counts[i] : '';
+      g1.appendChild(d);
+    }
+    for (let i=4;i<8;i++){
+      const d = document.createElement('div');
+      d.textContent = Number.isFinite(counts[i]) ? counts[i] : '';
+      g2.appendChild(d);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'grids';
+    wrap.appendChild(g1); wrap.appendChild(g2);
+    where.appendChild(wrap);
+  }
+
+  function renderMath(where, tex){
+    const d = document.createElement('div');
+    d.className = 'math';
+    d.innerHTML = `$$${tex}$$`;
+    where.appendChild(d);
+    // re-render KaTeX inside just this node
+    try{ renderMathInElement(d, {delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]}); }catch(e){}
+  }
+
+  byId('calcBtn').addEventListener('click', ()=>{
+    byId('err').textContent = '';
+    const counts = getCounts();
+    if (counts.some(v => !v && v!==0)){
+      // allow blanks -> treat as 0
+    }
+    const avg = calcAvg(counts);
+    const C = calcC(avg); // ×10^5
+    // basic validations
+    if (avg<=0 || C<=0){
+      byId('err').textContent = '細胞数（8区画）の入力を確認してください。';
+    }
+
+    // header info (dates)
+    const now = today();
+    const baseDateStr = `${now.y}/${now.m}/${now.dd}`;
+    const mmdd = `${now.m}/${now.dd}`;
+
+    // ===== 継代出力 =====
+    const outP = byId('outPassage');
+    outP.innerHTML = '';
+    if ($usePassage.checked){
+      // top header
+      const h = document.createElement('div');
+      h.innerHTML = `<div class="mini">${baseDateStr}</div>
+        <div class="mini">細胞株: <strong>${(byId('cellLine').value||'—')}</strong>　p${byId('passage').value||'?'} → p${ (parseInt(byId('passage').value||'0')+1) }</div>`;
+      outP.appendChild(h);
+      // grids
+      const g = document.createElement('div');
+      renderGridNumbers(g, counts);
+      outP.appendChild(g);
+      // avg & C
+      { const d=document.createElement('div'); d.className='mini'; d.innerHTML = `Avg: ${avg} cells`; outP.appendChild(d);}
+      // C as both original and ×10^5
+      const Ccells = avg*2*1e4;
+      const C_tex = `${(C/1e5).toFixed(1)}\\times 10^{5}`;
+      renderMath(outP, String.raw`\text{細胞濃度}\;C\;\approx\;${formatTimes1e5(C)}\;\text{cells/mL}`);
+      // each passage block
+      const blocks = Array.from($passageBlocks.children);
+      blocks.forEach((b, idx)=>{
+        const nextDaysVal = parseInt(b.querySelector('.nextDays').value);
+        let n = parseFloat(b.querySelector('.seedN').value);
+        let usedDays = null;
+        if (!isNaN(nextDaysVal)){
+          // next-days set -> compute n
+          usedDays = nextDaysVal;
+          if (!isFinite(nextDaysVal)) return;
+          n = nFromDays(nextDaysVal);
+        }
+        // n now is ×10^5
+        if (!isFinite(n) || n<=0) return;
+
+        // volume µL / well
+        const V_ul = Math.round((n / C) * 1000);
+        const section = document.createElement('div');
+        section.className = 'card';
+        section.style.borderColor = '#cfe6ec';
+        // date line when nextDays is provided
+        let dateLine = '';
+        if (usedDays){
+          const next = addDays(now.date, usedDays);
+          dateLine = `<div class="mini">${mmdd} → ${next.m}/${next.dd}</div>`;
+        }
+        section.innerHTML = `${dateLine}`;
+        outP.appendChild(section);
+        section.innerHTML += `<div>播種細胞数 n ≈ ${formatTimes1e5(n).replace('10^5','10<sup>5</sup>')} cells</div>`;
+        section.innerHTML += `<div>播種液量 V ≈ <b><u>${V_ul} µL</u></b></div>`;
+      });
+    }
+
+    // ===== サンプル作成出力 =====
+    const outS = byId('outSample');
+    outS.innerHTML = '';
+    if ($useSample.checked){
+      // header & grids (same as passage)
+      const h = document.createElement('div');
+      h.innerHTML = `<div class="mini">${baseDateStr}</div>
+        <div class="mini">細胞株: <strong>${(byId('cellLine').value||'—')}</strong>　p${byId('passage').value||'?'} → p${ (parseInt(byId('passage').value||'0')+1) }</div>`;
+      outS.appendChild(h);
+      const g = document.createElement('div');
+      renderGridNumbers(g, counts);
+      outS.appendChild(g);
+      // avg & C
+      { const d=document.createElement('div'); d.className='mini'; d.innerHTML = `Avg: ${avg} cells`; outS.appendChild(d);}
+      renderMath(outS, String.raw`\text{細胞濃度}\;C\;\approx\;${formatTimes1e5(C)}\;\text{cells/mL}`);
+
+      // build table header depending on number of sample blocks
+      const blocks = Array.from($sampleBlocks.children);
+      if (blocks.length){
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+        table.appendChild(thead); table.appendChild(tbody);
+
+        // header rows
+        const head1 = document.createElement('tr');
+        head1.appendChild(document.createElement('th')).textContent = '';
+        blocks.forEach((b, i)=>{
+          const th = document.createElement('th');
+          th.textContent = `${i+1}`;
+          head1.appendChild(th);
+        });
+        thead.appendChild(head1);
+
+        // compute per block & push rows
+        const rows = {
+          wells: ['播種数 [cells/well]'],
+          vcellT: ['細胞懸濁液 [µL]'],
+          media: ['10%iM [µL]']
+        };
+
+        blocks.forEach(b=>{
+          const plate = parseInt(b.querySelector('.plate').value);
+          const N = parseInt(b.querySelector('.nwells').value);
+          const n = parseFloat(b.querySelector('.seedN').value); // ×10^5
+          const m = mFromPlate(plate);
+          const one = perWellVolume(plate);
+          const total = one * ((isFinite(N)?N:0) + m);
+          const v_cell_well = Math.round((n / C) * 1000);
+          const v_cell_total = Math.round(v_cell_well * ((isFinite(N)?N:0) + m));
+          const media = Math.round(total - v_cell_total);
+
+          rows.wells.push(isFinite(n) ? `${formatTimes1e5(n).replace('10^5','10<sup>5</sup>')}` : '—');
+          rows.vcellT.push(isFinite(v_cell_total) ? `${roundInt(v_cell_total)}` : '—');
+          rows.media.push(isFinite(media) ? `${roundInt(media)}` : '—');
+        });
+
+        // fill rows to table
+        Object.values(rows).forEach(arr=>{
+          const tr = document.createElement('tr');
+          arr.forEach((txt, i)=>{
+            const cell = document.createElement(i===0?'th':'td');
+            cell.innerHTML = txt;
+            tr.appendChild(cell);
+          });
+          tbody.appendChild(tr);
+        });
+        outS.appendChild(table);
+      }
+    }
+  });
+})();</script>
+</body>
+</html>
